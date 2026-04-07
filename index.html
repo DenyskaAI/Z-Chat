@@ -1,0 +1,240 @@
+<script src="https://cdn.tailwindcss.com"></script>
+
+<style>
+    .dark-mode { --bg: #0e1621; --side: #17212b; --text: #ffffff; --msg: #2ecc71; --input: #242f3d; --border: rgba(255,255,255,0.1); }
+    .light-mode { --bg: #f0f2f5; --side: #ffffff; --text: #000000; --msg: #0088cc; --input: #ffffff; --border: rgba(0,0,0,0.1); }
+
+    body { margin: 0; font-family: 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); transition: 0.3s; height: 100vh; overflow: hidden; }
+    #app-root { display: flex; height: 100%; width: 100%; }
+
+    h1, h3, b, span, div, p, label, button, input { color: var(--text) !important; }
+    input { background: var(--input) !important; border: 1px solid var(--border); padding: 12px; border-radius: 12px; outline: none; }
+    input::placeholder { color: var(--text); opacity: 0.4; }
+
+    .sidebar { width: 320px; background: var(--side); border-right: 1px solid var(--border); display: flex; flex-direction: column; position: relative; }
+    .main-chat { flex: 1; display: flex; flex-direction: column; background: var(--bg); }
+    
+    .msg-bubble { align-self: flex-end; background: #2ecc71; color: white !important; padding: 10px 16px; border-radius: 18px; max-width: 80%; margin-bottom: 8px; box-shadow: 0 1px 2px rgba(0,0,0,0.2); }
+    
+    .btn-green { background: #2ecc71; color: white !important; padding: 14px; border-radius: 12px; font-weight: bold; width: 100%; cursor: pointer; border: none; }
+    
+    .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 1000; align-items: center; justify-content: center; }
+    .modal-box { background: var(--side); padding: 30px; border-radius: 24px; width: 360px; border: 1px solid var(--border); text-align: center; }
+    
+    .chat-item { padding: 15px; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid var(--border); cursor: pointer; }
+    .chat-item.active { background: rgba(46, 204, 113, 0.2); border-left: 4px solid #2ecc71; }
+    
+    .lang-btn { padding: 6px 12px; border: 1px solid #2ecc71; border-radius: 8px; cursor: pointer; font-size: 12px; font-weight: bold; color: #2ecc71 !important; }
+</style>
+
+<div id="app-root" class="dark-mode">
+    
+    <div id="auth-screen" style="position: fixed; inset: 0; background: #0e1621; z-index: 9999; display: flex; align-items: center; justify-content: center;">
+        <div style="background: #17212b; padding: 40px; border-radius: 30px; width: 380px; text-align: center;">
+            <h1 style="color: #2ecc71 !important; font-size: 42px; font-weight: 900; margin-bottom: 20px;">Z-CHAT</h1>
+            <div class="flex flex-col gap-3">
+                <input type="text" id="regNick" placeholder="Никнейм">
+                <input type="email" id="regEmail" placeholder="Email">
+                <input type="password" id="regPass" placeholder="Пароль">
+            </div>
+            <button id="btnAuth" onclick="handleAuth()" class="btn-green uppercase mt-6">Регистрация</button>
+            <p id="toggleAuth" onclick="toggleAuthMode()" class="mt-4 text-sm cursor-pointer" style="color: #2ecc71 !important;">Уже есть аккаунт? Войти</p>
+            <div class="mt-8 flex justify-center gap-3">
+                <span class="lang-btn" onclick="setLng('ru')">RU</span>
+                <span class="lang-btn" onclick="setLng('ua')">UA</span>
+                <span class="lang-btn" onclick="setLng('en')">EN</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="sidebar">
+        <div class="p-4 border-b border-[var(--border)]">
+            <div class="flex items-center gap-3 mb-4">
+                <button onclick="showM('setM')" style="font-size: 24px;">☰</button>
+                <input type="text" id="searchBox" placeholder="Поиск..." class="flex-1">
+            </div>
+            <b id="t-chats">Чаты</b>
+        </div>
+        <div id="chatList" class="flex-1 overflow-y-auto">
+            <div id="item-fav" class="chat-item active" onclick="selectChat(this, 'notes', 'fav', 'notes')">
+                <div class="w-10 h-10 bg-[#2ecc71] rounded-full flex items-center justify-center text-white text-xl">🔖</div>
+                <div><b id="t-fav-title">Избранное</b><p class="text-[10px] opacity-50" id="t-self">Заметки</p></div>
+            </div>
+        </div>
+        <button onclick="showM('createM')" class="absolute bottom-6 right-6 w-14 h-14 bg-[#2ecc71] rounded-full text-white text-3xl shadow-xl">✎</button>
+    </div>
+
+    <div class="main-chat">
+        <div class="p-4 border-b border-[var(--border)] flex justify-between items-center bg-[var(--side)]">
+            <b id="activeChatName">Избранное</b>
+            <button id="callBtn" onclick="startCall()" class="text-2xl p-2">📞</button>
+        </div>
+        <div id="box" class="flex-1 overflow-y-auto p-6 flex flex-col"></div>
+        <div class="p-4 flex gap-3 bg-[var(--side)] border-t border-[var(--border)]">
+            <input type="text" id="msgIn" placeholder="Сообщение..." class="flex-1">
+            <button onclick="sendMessage()" class="text-[#2ecc71] text-4xl">➤</button>
+        </div>
+    </div>
+
+    <div id="setM" class="modal" onclick="if(event.target==this) this.style.display='none'">
+        <div class="modal-box">
+            <h3 class="font-bold text-xl mb-6" id="t-set-head">Настройки</h3>
+            <button onclick="toggleTheme()" class="btn-green mb-6" id="t-theme">СМЕНИТЬ ТЕМУ</button>
+            <div class="flex justify-center gap-3 mb-8">
+                <span class="lang-btn" onclick="setLng('ru')">RU</span>
+                <span class="lang-btn" onclick="setLng('ua')">UA</span>
+                <span class="lang-btn" onclick="setLng('en')">EN</span>
+            </div>
+            <button onclick="logoutAction()" id="t-exit-btn" class="w-full text-red-500 font-bold border-2 border-red-500 p-3 rounded-xl uppercase">Выйти</button>
+        </div>
+    </div>
+
+    <div id="createM" class="modal" onclick="if(event.target==this) this.style.display='none'">
+        <div class="modal-box space-y-4">
+            <h3 id="t-create-head">Создать</h3>
+            <button onclick="createEntity('channel')" class="btn-green" id="t-btn-chan">📢 Канал</button>
+            <button onclick="createGroupLogic()" class="btn-green" style="background:#3498db" id="t-btn-grp">👥 Группа</button>
+            <button onclick="findRealUser()" class="btn-green" style="background:#9b59b6" id="t-btn-con">👤 Найти контакт</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    let isLoginMode = false;
+    let currentChatId = 'notes';
+    let currentLang = 'ru';
+    let myChats = [];
+    let myMessages = [];
+    const DATABASE_USERS = ["ivan", "maria", "alex", "support", "admin"];
+
+    const Langs = {
+        ru: { reg: "Регистрация", enter: "Войти", have: "Уже есть аккаунт? Войти", noHave: "Нет аккаунта? Регистрация", chats: "Чаты", fav: "Избранное", self: "Заметки", set: "Настройки", theme: "СМЕНИТЬ ТЕМУ", create: "Создать", chan: "📢 Канал", grp: "👥 Группа", con: "👤 Найти контакт", msg: "Сообщение...", search: "Поиск...", exit: "Выйти", nick: "Никнейм", pass: "Пароль" },
+        ua: { reg: "Реєстрація", enter: "Увійти", have: "Вже є акаунт? Увійти", noHave: "Немає акаунта? Реєстрація", chats: "Чати", fav: "Обране", self: "Замітки", set: "Налаштування", theme: "ЗМІНИТИ ТЕМУ", create: "Створити", chan: "📢 Канал", grp: "👥 Група", con: "👤 Знайти контакт", msg: "Повідомлення...", search: "Пошук...", exit: "Вийти", nick: "Нікнейм", pass: "Пароль" },
+        en: { reg: "Register", enter: "Login", have: "Have account? Login", noHave: "No account? Register", chats: "Chats", fav: "Saved", self: "Notes", set: "Settings", theme: "SWITCH THEME", create: "Create", chan: "📢 Channel", grp: "👥 Group", con: "👤 Find Contact", msg: "Message...", search: "Search...", exit: "Logout", nick: "Nickname", pass: "Password" }
+    };
+
+    function setLng(l) {
+        currentLang = l;
+        const d = Langs[l];
+        document.getElementById('regNick').placeholder = d.nick;
+        document.getElementById('regPass').placeholder = d.pass;
+        document.getElementById('btnAuth').innerText = isLoginMode ? d.enter : d.reg;
+        document.getElementById('toggleAuth').innerText = isLoginMode ? d.noHave : d.have;
+        document.getElementById('t-chats').innerText = d.chats;
+        document.getElementById('t-fav-title').innerText = d.fav;
+        document.getElementById('t-self').innerText = d.self;
+        document.getElementById('t-set-head').innerText = d.set;
+        document.getElementById('t-theme').innerText = d.theme;
+        document.getElementById('t-create-head').innerText = d.create;
+        document.getElementById('t-btn-chan').innerText = d.chan;
+        document.getElementById('t-btn-grp').innerText = d.grp;
+        document.getElementById('t-btn-con').innerText = d.con;
+        document.getElementById('msgIn').placeholder = d.msg;
+        document.getElementById('searchBox').placeholder = d.search;
+        document.getElementById('t-exit-btn').innerText = d.exit;
+        if(currentChatId === 'notes') document.getElementById('activeChatName').innerText = d.fav;
+    }
+
+    function toggleAuthMode() {
+        isLoginMode = !isLoginMode;
+        document.getElementById('regNick').style.display = isLoginMode ? 'none' : 'block';
+        setLng(currentLang);
+    }
+
+    function handleAuth() {
+        localStorage.setItem('z_user_logged', 'true');
+        document.getElementById('auth-screen').style.display = 'none';
+        initApp();
+    }
+
+    // ИСПРАВЛЕННЫЙ ВЫХОД: БЕЗ ПЕРЕЗАГРУЗКИ СТРАНИЦЫ (ДЛЯ ОБХОДА 404)
+    function logoutAction() {
+        localStorage.removeItem('z_user_logged');
+        document.getElementById('auth-screen').style.display = 'flex';
+        document.getElementById('setM').style.display = 'none';
+    }
+
+    function findRealUser() {
+        const n = prompt(currentLang === 'ru' ? "Никнейм:" : "Username:");
+        if(n && DATABASE_USERS.includes(n.toLowerCase())) {
+            saveChat(n, 'user');
+        } else if(n) alert("User not found!");
+    }
+
+    function createGroupLogic() {
+        const hasContacts = myChats.some(c => c.type === 'user');
+        if(!hasContacts) return alert(currentLang === 'ru' ? "Сначала добавьте контакт!" : "Add contact first!");
+        const n = prompt("Group Name:");
+        if(n) saveChat(n, 'group');
+    }
+
+    function createEntity(type) {
+        const n = prompt("Name:");
+        if(n) saveChat(n, type);
+    }
+
+    function saveChat(name, type) {
+        const chat = { id: type + Date.now(), name, type };
+        myChats.push(chat);
+        localStorage.setItem('z_my_chats', JSON.stringify(myChats));
+        addChatUI(chat);
+        document.getElementById('createM').style.display = 'none';
+    }
+
+    function addChatUI(chat) {
+        const d = document.createElement('div');
+        d.className = "chat-item";
+        d.id = "chat-" + chat.id;
+        d.onclick = () => selectChat(d, chat.id, chat.name, chat.type);
+        const icons = { channel: '📢', group: '👥', user: '👤' };
+        d.innerHTML = `<div class="w-10 h-10 bg-gray-500 rounded-full flex items-center justify-center text-white">${icons[chat.type]}</div><b>${chat.name}</b>`;
+        document.getElementById('chatList').appendChild(d);
+    }
+
+    function selectChat(el, id, name, type) {
+        document.querySelectorAll('.chat-item').forEach(i => i.classList.remove('active'));
+        el.classList.add('active');
+        currentChatId = id;
+        document.getElementById('activeChatName').innerText = (id === 'notes') ? Langs[currentLang].fav : name;
+        document.getElementById('callBtn').style.display = (type === 'channel') ? 'none' : 'block';
+        renderMsgs();
+    }
+
+    function sendMessage() {
+        const inp = document.getElementById('msgIn');
+        if(!inp.value.trim()) return;
+        const msg = { chatId: currentChatId, text: inp.value };
+        myMessages.push(msg);
+        localStorage.setItem('z_my_msgs', JSON.stringify(myMessages));
+        inp.value = "";
+        renderMsgs();
+    }
+
+    function renderMsgs() {
+        const box = document.getElementById('box');
+        box.innerHTML = "";
+        myMessages.filter(m => m.chatId === currentChatId).forEach(m => {
+            box.innerHTML += `<div class="msg-bubble">${m.text}</div>`;
+        });
+        box.scrollTop = box.scrollHeight;
+    }
+
+    function initApp() {
+        myChats = JSON.parse(localStorage.getItem('z_my_chats')) || [];
+        myMessages = JSON.parse(localStorage.getItem('z_my_msgs')) || [];
+        const list = document.getElementById('chatList');
+        while (list.children.length > 1) list.removeChild(list.lastChild);
+        myChats.forEach(c => addChatUI(c));
+        renderMsgs();
+    }
+
+    function showM(id) { document.getElementById(id).style.display = 'flex'; }
+    function toggleTheme() { document.getElementById('app-root').classList.toggle('light-mode'); }
+    function startCall() { window.open('https://meet.google.com/new'); }
+
+    if(localStorage.getItem('z_user_logged')) {
+        document.getElementById('auth-screen').style.display = 'none';
+        initApp();
+    }
+    setLng('ru');
+</script>
